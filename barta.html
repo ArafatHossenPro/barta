@@ -1,0 +1,1085 @@
+
+<!DOCTYPE html>
+<html lang="bn">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#f5f7fc">
+  <meta name="description" content="আলাপ — বন্ধুদের সঙ্গে রিয়েল-টাইমে চ্যাট করুন।">
+  <title>আলাপ — লাইভ চ্যাট</title>
+
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+
+  <style>
+    :root {
+      --primary: #5b5ce2;
+      --primary-dark: #4849c8;
+      --ink: #20233a;
+      --muted: #8589a3;
+      --border: #e9ebf4;
+      --page: #f5f7fc;
+      --sent: #5b5ce2;
+      --received: #f0f2fa;
+    }
+
+    * { box-sizing: border-box; }
+
+    [hidden] { display: none !important; }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: "Noto Sans Bengali", "Hind Siliguri", "Segoe UI", sans-serif;
+      color: var(--ink);
+      background:
+        radial-gradient(ellipse at 5% 5%, #e8e9ff 0, transparent 35%),
+        radial-gradient(ellipse at 95% 90%, #e5f3ff 0, transparent 35%),
+        var(--page);
+    }
+
+    button, input { font: inherit; }
+    button { cursor: pointer; }
+
+    button:focus-visible, input:focus-visible {
+      outline: 3px solid #a5a6ff;
+      outline-offset: 3px;
+    }
+
+    .app { min-height: 100vh; display: flex; flex-direction: column; }
+
+    .topbar {
+      min-height: 72px;
+      padding: 0 6%;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      border-bottom: 1px solid rgba(226,229,241,.8);
+      background: rgba(255,255,255,.78);
+      backdrop-filter: blur(16px);
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 11px;
+      font-size: 23px;
+      font-weight: 800;
+    }
+
+    .brand-icon, .room-avatar {
+      display: grid;
+      place-items: center;
+      color: white;
+      background: linear-gradient(135deg,#7778ff,#4f50d6);
+      box-shadow: 0 6px 16px #5b5ce236;
+    }
+
+    .brand-icon {
+      width: 42px;
+      height: 42px;
+      border-radius: 14px;
+      font-size: 22px;
+    }
+
+    .brand-name span { color: var(--primary); }
+
+    .top-status {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    .status-dot {
+      width: 8px;
+      height: 8px;
+      flex: 0 0 auto;
+      border-radius: 50%;
+      background: #c1c4d4;
+    }
+
+    .status-dot.online {
+      background: #20b486;
+      box-shadow: 0 0 0 4px #20b48618;
+    }
+
+    .status-dot.offline { background: #e0a23b; }
+
+    main {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 34px 18px;
+    }
+
+    .join-layout {
+      width: 100%;
+      max-width: 1010px;
+      display: grid;
+      grid-template-columns: 1fr .86fr;
+      gap: 48px;
+      align-items: center;
+    }
+
+    .intro { padding: 10px 0; }
+
+    .eyebrow {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 13px;
+      border: 1px solid #dedfff;
+      border-radius: 100px;
+      background: white;
+      color: var(--primary);
+      font-size: 12px;
+      font-weight: 700;
+    }
+
+    .intro h1 {
+      margin: 22px 0 15px;
+      font-size: clamp(34px,4.5vw,53px);
+      line-height: 1.35;
+      letter-spacing: -1px;
+    }
+
+    .intro h1 span { color: var(--primary); }
+
+    .intro > p {
+      max-width: 430px;
+      color: #737891;
+      line-height: 1.95;
+      font-size: 15px;
+    }
+
+    .feature-list { display: grid; gap: 15px; margin-top: 30px; }
+
+    .feature {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      color: #50556f;
+      font-size: 13px;
+    }
+
+    .feature-icon {
+      display: grid;
+      place-items: center;
+      width: 38px;
+      height: 38px;
+      flex: 0 0 auto;
+      border-radius: 12px;
+      background: white;
+      color: var(--primary);
+      border: 1px solid var(--border);
+    }
+
+    .panel {
+      min-width: 0;
+      padding: 31px;
+      border: 1px solid rgba(232,234,244,.95);
+      border-radius: 25px;
+      background: white;
+      box-shadow: 0 20px 65px rgba(45,52,100,.09);
+    }
+
+    .panel h2 { margin: 0 0 7px; font-size: 25px; }
+
+    .panel-description {
+      margin: 0 0 25px;
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.8;
+    }
+
+    .field { margin-bottom: 19px; }
+
+    .field label {
+      display: block;
+      margin-bottom: 9px;
+      font-size: 13px;
+      font-weight: 700;
+    }
+
+    .field input {
+      width: 100%;
+      height: 49px;
+      padding: 0 14px;
+      border: 1px solid #e3e5ef;
+      border-radius: 12px;
+      background: #fafbff;
+      color: var(--ink);
+      font-size: 14px;
+      transition: border-color .2s, box-shadow .2s;
+    }
+
+    .field input:focus {
+      outline: none;
+      border-color: var(--primary);
+      box-shadow: 0 0 0 4px #5b5ce213;
+    }
+
+    .field input::placeholder { color: #afb2c4; }
+
+    .hint {
+      margin-top: 7px;
+      color: var(--muted);
+      font-size: 11px;
+      line-height: 1.7;
+    }
+
+    .btn {
+      display: inline-flex;
+      justify-content: center;
+      align-items: center;
+      gap: 9px;
+      min-height: 48px;
+      padding: 12px 18px;
+      border: 0;
+      border-radius: 12px;
+      font-size: 14px;
+      font-weight: 700;
+      transition: transform .2s, background .2s, box-shadow .2s;
+    }
+
+    .btn:disabled { opacity: .6; cursor: not-allowed; }
+    .btn-full { width: 100%; }
+
+    .btn-primary {
+      color: white;
+      background: linear-gradient(135deg,#696af2,#5051d6);
+      box-shadow: 0 7px 18px #5b5ce229;
+    }
+
+    .btn-primary:hover:not(:disabled) {
+      transform: translateY(-1px);
+      box-shadow: 0 10px 24px #5b5ce238;
+    }
+
+    .btn-secondary {
+      color: var(--primary);
+      background: #f0f0ff;
+      border: 1px solid #e2e2ff;
+    }
+
+    .btn-secondary:hover:not(:disabled) { background: #e6e6ff; }
+
+    .join-divider {
+      display: flex;
+      align-items: center;
+      gap: 13px;
+      margin: 20px 0;
+      color: #a0a3b7;
+      font-size: 11px;
+    }
+
+    .join-divider::before, .join-divider::after {
+      content: "";
+      height: 1px;
+      flex: 1;
+      background: var(--border);
+    }
+
+    .panel-note {
+      margin: 20px 0 0;
+      text-align: center;
+      font-size: 11px;
+      line-height: 1.8;
+      color: var(--muted);
+    }
+
+    .chat-shell {
+      width: 100%;
+      max-width: 940px;
+      height: min(760px,calc(100vh - 140px));
+      min-height: 430px;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      border: 1px solid #e6e8f2;
+      border-radius: 22px;
+      background: white;
+      box-shadow: 0 20px 65px rgba(45,52,100,.10);
+    }
+
+    .chat-header {
+      min-height: 82px;
+      padding: 16px 22px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .room-info { min-width: 0; display: flex; align-items: center; gap: 12px; }
+
+    .room-avatar {
+      width: 45px;
+      height: 45px;
+      flex: 0 0 auto;
+      border-radius: 15px;
+      font-size: 20px;
+      font-weight: 800;
+    }
+
+    .room-text { min-width: 0; }
+
+    .room-text h2 {
+      margin: 0 0 6px;
+      overflow-wrap: anywhere;
+      font-size: 16px;
+    }
+
+    .room-subtitle {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      color: var(--muted);
+      font-size: 11px;
+    }
+
+    .header-actions { display: flex; align-items: center; gap: 8px; }
+
+    .icon-button {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 7px;
+      min-height: 40px;
+      padding: 9px 12px;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      background: white;
+      color: #555a75;
+      font-size: 12px;
+      font-weight: 700;
+    }
+
+    .icon-button:hover { background: #f6f6ff; border-color: #d7d8ff; }
+
+    .messages {
+      flex: 1;
+      min-height: 0;
+      padding: 24px clamp(14px,4vw,32px);
+      overflow-y: auto;
+      background: radial-gradient(ellipse at 100% 0%,#f0f0ff 0,transparent 40%),#fafbff;
+      scroll-behavior: smooth;
+    }
+
+    .empty-state {
+      min-height: 100%;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      color: var(--muted);
+    }
+
+    .empty-icon {
+      display: grid;
+      place-items: center;
+      width: 65px;
+      height: 65px;
+      margin-bottom: 16px;
+      border-radius: 22px;
+      background: #eeeeff;
+      color: var(--primary);
+      font-size: 28px;
+    }
+
+    .empty-state h3 { margin: 0 0 8px; color: var(--ink); font-size: 17px; }
+
+    .empty-state p {
+      margin: 0;
+      max-width: 280px;
+      font-size: 12px;
+      line-height: 1.9;
+    }
+
+    .date-divider { display: flex; justify-content: center; margin: 3px 0 22px; }
+
+    .date-divider span {
+      padding: 7px 12px;
+      border: 1px solid #eceefa;
+      border-radius: 100px;
+      background: white;
+      color: #8d91a8;
+      font-size: 10px;
+    }
+
+    .message-row {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-start;
+      margin-bottom: 17px;
+      animation: appear .2s ease-out;
+    }
+
+    .message-row.mine { align-items: flex-end; }
+
+    .message-meta {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      margin: 0 5px 6px;
+      color: #878ba3;
+      font-size: 10px;
+    }
+
+    .message-bubble {
+      max-width: min(78%,510px);
+      padding: 12px 15px;
+      border: 1px solid #e8eaf4;
+      border-radius: 16px 16px 16px 5px;
+      background: white;
+      color: #343851;
+      box-shadow: 0 3px 9px rgba(30,35,70,.025);
+      font-size: 14px;
+      line-height: 1.85;
+      overflow-wrap: anywhere;
+      white-space: pre-wrap;
+    }
+
+    .mine .message-bubble {
+      color: white;
+      border-color: transparent;
+      border-radius: 16px 16px 5px 16px;
+      background: linear-gradient(135deg,#696af2,#5354db);
+      box-shadow: 0 5px 14px #5b5ce21b;
+    }
+
+    .message-time {
+      margin: 5px 5px 0;
+      color: #a0a3b7;
+      font-size: 9px;
+    }
+
+    .composer {
+      padding: 15px 20px 17px;
+      border-top: 1px solid var(--border);
+      background: white;
+    }
+
+    .composer-box {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 7px;
+      border: 1px solid #e6e8f2;
+      border-radius: 15px;
+      background: #f8f9fd;
+    }
+
+    .composer-box:focus-within { border-color: #b5b6ff; }
+
+    .composer input {
+      flex: 1;
+      min-width: 0;
+      height: 43px;
+      padding: 0 10px;
+      border: 0;
+      outline: none;
+      background: transparent;
+      color: var(--ink);
+      font-size: 14px;
+    }
+
+    .send-btn {
+      width: 44px;
+      height: 44px;
+      flex: 0 0 auto;
+      display: grid;
+      place-items: center;
+      border: 0;
+      border-radius: 12px;
+      background: var(--primary);
+      color: white;
+      font-size: 20px;
+    }
+
+    .send-btn:hover:not(:disabled) { background: var(--primary-dark); }
+    .send-btn:disabled { opacity: .45; cursor: not-allowed; }
+
+    .composer-hint { margin: 9px 2px 0; color: #a0a3b7; font-size: 10px; }
+
+    .notice {
+      display: none;
+      margin: 0 0 12px;
+      padding: 11px 13px;
+      border-radius: 10px;
+      font-size: 12px;
+      line-height: 1.7;
+    }
+
+    .notice.show { display: block; }
+    .notice.error { background: #fff0f1; color: #b62f46; }
+    .notice.info { background: #f0f0ff; color: #4e50bd; }
+    .notice.success { background: #eaf9f3; color: #137d5d; }
+
+    .toast {
+      position: fixed;
+      left: 50%;
+      bottom: 25px;
+      z-index: 10;
+      max-width: calc(100vw - 32px);
+      padding: 12px 18px;
+      border-radius: 12px;
+      background: #292b40;
+      color: white;
+      font-size: 12px;
+      text-align: center;
+      opacity: 0;
+      pointer-events: none;
+      transform: translate(-50%,12px);
+      transition: opacity .2s,transform .2s;
+    }
+
+    .toast.visible { opacity: 1; transform: translate(-50%,0); }
+
+    footer { padding: 16px; text-align: center; color: #9699ad; font-size: 11px; }
+
+    @keyframes appear {
+      from { opacity: 0; transform: translateY(5px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    @media (max-width:760px) {
+      .topbar { min-height: 65px; padding: 0 18px; }
+      .brand { font-size: 20px; }
+      .brand-icon { width: 38px; height: 38px; }
+      main { padding: 25px 14px; }
+
+      .join-layout {
+        max-width: 480px;
+        grid-template-columns: 1fr;
+        gap: 23px;
+      }
+
+      .intro { padding: 0 5px; }
+      .intro h1 { margin-top: 16px; font-size: clamp(31px,8vw,43px); }
+      .intro > p { margin-bottom: 0; font-size: 13px; }
+      .feature-list { grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 18px; }
+      .feature { align-items: flex-start; font-size: 11px; line-height: 1.7; }
+      .feature-icon { width: 32px; height: 32px; }
+      .panel { padding: 23px 19px; border-radius: 20px; }
+      .chat-shell { height: calc(100dvh - 100px); min-height: 390px; border-radius: 17px; }
+      .chat-header { min-height: 72px; padding: 12px; }
+      .room-avatar { width: 39px; height: 39px; }
+      .room-text h2 { font-size: 14px; }
+      .header-actions { gap: 5px; }
+      .icon-button { min-height: 38px; padding: 8px 9px; font-size: 11px; }
+      .messages { padding: 18px 12px; }
+      .message-bubble { max-width: 88%; padding: 10px 12px; font-size: 13px; }
+      .composer { padding: 11px; }
+      footer { padding: 10px; }
+    }
+
+    @media (max-width:380px) {
+      .top-status .status-label { display: none; }
+      .icon-button .button-label { display: none; }
+      .icon-button { width: 38px; padding: 8px; }
+    }
+
+    @media (prefers-reduced-motion:reduce) {
+      *,*::before,*::after {
+        animation-duration: .01ms !important;
+        transition-duration: .01ms !important;
+        scroll-behavior: auto !important;
+      }
+    }
+  </style>
+</head>
+
+<body>
+<div class="app">
+  <header class="topbar">
+    <div class="brand">
+      <div class="brand-icon" aria-hidden="true">☏</div>
+      <div class="brand-name">আলাপ<span>.</span></div>
+    </div>
+    <div class="top-status" aria-live="polite">
+      <span class="status-dot" id="connection-dot"></span>
+      <span class="status-label" id="connection-label">সংযোগ যাচাই হচ্ছে</span>
+    </div>
+  </header>
+
+  <main>
+    <section class="join-layout" id="room-container">
+      <div class="intro">
+        <div class="eyebrow">✦ সহজ, দ্রুত ও সরাসরি</div>
+        <h1>কথা হোক<br><span>মন খুলে।</span></h1>
+        <p>
+          বন্ধুদের সঙ্গে যোগাযোগের সহজ উপায়।
+          একটি রুম তৈরি করুন অথবা রুম আইডি দিয়ে
+          প্রবেশ করুন, তারপর শুরু হোক কথোপকথন।
+        </p>
+
+        <div class="feature-list">
+          <div class="feature"><div class="feature-icon">◷</div><span>রিয়েল-টাইমে মেসেজ আদান-প্রদান</span></div>
+          <div class="feature"><div class="feature-icon">＋</div><span>সহজেই নতুন রুম তৈরি</span></div>
+          <div class="feature"><div class="feature-icon">♧</div><span>লিংক পাঠিয়ে বন্ধুদের আমন্ত্রণ</span></div>
+          <div class="feature"><div class="feature-icon">▣</div><span>মোবাইল ও কম্পিউটারে ব্যবহারযোগ্য</span></div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <h2>চ্যাটে যোগ দিন 👋</h2>
+        <p class="panel-description">আপনার নাম লিখুন এবং একটি রুমে প্রবেশ করুন।</p>
+
+        <div id="setup-notice" class="notice" role="alert"></div>
+
+        <form id="join-form">
+          <div class="field">
+            <label for="username-input">আপনার নাম</label>
+            <input id="username-input" type="text" maxlength="40"
+                   autocomplete="nickname" placeholder="আপনার নাম লিখুন" required>
+          </div>
+
+          <div class="field">
+            <label for="room-input">রুম আইডি</label>
+            <input id="room-input" type="text" maxlength="100"
+                   autocomplete="off" placeholder="যেমন: friends-room-123" required>
+            <div class="hint">বন্ধুর রুমে যেতে তার দেওয়া রুম আইডি লিখুন।</div>
+          </div>
+
+          <button class="btn btn-primary btn-full" id="join-button" type="submit">
+            চ্যাট শুরু করুন <span aria-hidden="true">→</span>
+          </button>
+        </form>
+
+        <div class="join-divider">অথবা</div>
+
+        <button class="btn btn-secondary btn-full" id="create-room-button" type="button">
+          + নতুন রুম তৈরি করুন
+        </button>
+
+        <p class="panel-note">
+          রুম আইডি যাদের সঙ্গে শেয়ার করবেন, তারাও সেই রুমে প্রবেশ করতে পারবেন।
+          গোপনীয় তথ্য শেয়ার করবেন না।
+        </p>
+      </div>
+    </section>
+
+    <section class="chat-shell" id="chat-container" hidden>
+      <header class="chat-header">
+        <div class="room-info">
+          <div class="room-avatar" aria-hidden="true">আ</div>
+          <div class="room-text">
+            <h2 id="display-room">চ্যাট রুম</h2>
+            <div class="room-subtitle">
+              <span class="status-dot" id="room-status-dot"></span>
+              <span id="room-status-text">সংযোগ হচ্ছে...</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="header-actions">
+          <button class="icon-button" id="copy-link-button" type="button">
+            <span aria-hidden="true">▢</span><span class="button-label">লিংক কপি</span>
+          </button>
+          <button class="icon-button" id="leave-button" type="button" title="রুম থেকে বের হন">
+            <span aria-hidden="true">↪</span><span class="button-label">বের হন</span>
+          </button>
+        </div>
+      </header>
+
+      <div class="messages" id="messages" aria-live="polite" aria-label="চ্যাটের বার্তা">
+        <div class="empty-state" id="empty-state">
+          <div class="empty-icon">✉</div>
+          <h3>কথোপকথন শুরু হোক!</h3>
+          <p>আপনার প্রথম মেসেজটি পাঠান। নতুন মেসেজ এখানে দেখা যাবে।</p>
+        </div>
+      </div>
+
+      <div class="composer">
+        <div id="chat-notice" class="notice" role="status"></div>
+        <form class="composer-box" id="message-form">
+          <input id="message-input" type="text" maxlength="2000"
+                 autocomplete="off" placeholder="আপনার মেসেজ লিখুন..."
+                 aria-label="মেসেজ লিখুন" required>
+          <button class="send-btn" id="send-button" type="submit"
+                  aria-label="মেসেজ পাঠান" title="মেসেজ পাঠান">➤</button>
+        </form>
+        <p class="composer-hint">Enter চাপলে মেসেজ পাঠানো হবে।</p>
+      </div>
+    </section>
+  </main>
+
+  <footer>আলাপ © ২০২৬ · সহজ যোগাযোগ, একসঙ্গে</footer>
+</div>
+
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<script>
+  // ==========================================
+  // Firebase configuration
+  // ==========================================
+
+  const firebaseConfig = {
+    apiKey: "AIzaSyAtBkyuFr1XNAz_h4HOTiaELvnlrblZJWc",
+    authDomain: "my-chat-app-28204.firebaseapp.com",
+    databaseURL: "https://my-chat-app-28204-default-rtdb.asia-southeast1.firebasedatabase.app",
+    projectId: "my-chat-app-28204",
+    storageBucket: "my-chat-app-28204.firebasestorage.app",
+    messagingSenderId: "1016811880144",
+    appId: "1:1016811880144:web:0c07aa5f9c2ee99f4ee8d5",
+    measurementId: "G-Z6H8WNY40C"
+  };
+
+  const $ = id => document.getElementById(id);
+
+  let database = null;
+  let currentRoom = "";
+  let username = "";
+  let roomRef = null;
+  let messageListener = null;
+  let joined = false;
+  let toastTimer = null;
+  let roomHasMessages = false;
+  let lastDateLabel = "";
+
+  function showNotice(id, message, type = "info") {
+    const el = $(id);
+    el.textContent = message;
+    el.className = "notice show " + type;
+  }
+
+  function hideNotice(id) {
+    $(id).textContent = "";
+    $(id).className = "notice";
+  }
+
+  function showToast(message) {
+    const toast = $("toast");
+    toast.textContent = message;
+    toast.classList.add("visible");
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => toast.classList.remove("visible"), 2800);
+  }
+
+  function setConnectionStatus(online, message) {
+    $("connection-dot").className = "status-dot " + (online ? "online" : "offline");
+    $("connection-label").textContent = message;
+  }
+
+  function setRoomStatus(online, message) {
+    $("room-status-dot").className = "status-dot " + (online ? "online" : "offline");
+    $("room-status-text").textContent = message;
+  }
+
+  function initializeFirebase() {
+    try {
+      if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
+      database = firebase.database();
+
+      database.ref(".info/connected").on("value", snapshot => {
+        const online = snapshot.val() === true;
+        setConnectionStatus(online, online ? "Firebase সংযুক্ত" : "সংযোগ বিচ্ছিন্ন");
+
+        if (joined) {
+          setRoomStatus(online, online ? "রুমে সংযুক্ত" : "সংযোগ বিচ্ছিন্ন");
+        }
+      });
+
+      return true;
+    } catch (error) {
+      console.error("Firebase initialization error:", error);
+      setConnectionStatus(false, "Firebase সংযোগে সমস্যা");
+      return false;
+    }
+  }
+
+  initializeFirebase();
+
+  function loadRoomFromURL() {
+    const room = new URLSearchParams(location.search).get("room");
+    if (room) $("room-input").value = room;
+  }
+
+  function isValidRoomId(room) {
+    return room.length >= 1 &&
+      room.length <= 100 &&
+      !/[.#$\[\]\/]/.test(room) &&
+      !/[\u0000-\u001f\u007f]/.test(room);
+  }
+
+  function makeRoomId() {
+    const bytes = new Uint8Array(16);
+    crypto.getRandomValues(bytes);
+    return "room-" + Array.from(bytes, b =>
+      b.toString(16).padStart(2, "0")
+    ).join("");
+  }
+
+  $("create-room-button").addEventListener("click", () => {
+    $("room-input").value = makeRoomId();
+    hideNotice("setup-notice");
+    $("username-input").focus();
+    showNotice("setup-notice", "নতুন রুম আইডি তৈরি হয়েছে। নাম লিখে চ্যাট শুরু করুন।", "success");
+  });
+
+  $("join-form").addEventListener("submit", event => {
+    event.preventDefault();
+    joinRoom();
+  });
+
+  function joinRoom() {
+    if (joined) return;
+
+    username = $("username-input").value.trim();
+    currentRoom = $("room-input").value.trim();
+
+    if (!username || !currentRoom) {
+      showNotice("setup-notice", "আপনার নাম ও রুম আইডি—দুটিই লিখুন।", "error");
+      return;
+    }
+
+    if (username.length > 40 || !isValidRoomId(currentRoom)) {
+      showNotice("setup-notice", "নাম বা রুম আইডি সঠিকভাবে লিখুন। রুম আইডিতে / . # $ [ ] ব্যবহার করা যাবে না।", "error");
+      return;
+    }
+
+    if (!database) {
+      showNotice("setup-notice", "Firebase চালু করা যায়নি। কনফিগারেশন ও ইন্টারনেট পরীক্ষা করুন।", "error");
+      return;
+    }
+
+    $("join-button").disabled = true;
+    hideNotice("setup-notice");
+
+    roomRef = database.ref("chats").child(currentRoom);
+    roomHasMessages = false;
+    lastDateLabel = "";
+    messagesDivReset();
+
+    $("display-room").textContent = currentRoom;
+    $("room-container").hidden = true;
+    $("chat-container").hidden = false;
+    joined = true;
+
+    const params = new URLSearchParams(location.search);
+    params.set("room", currentRoom);
+    history.replaceState(null, "", location.pathname + "?" + params.toString());
+
+    setRoomStatus(false, "রুমে সংযোগ হচ্ছে...");
+
+    messageListener = roomRef.limitToLast(300).on("child_added", snapshot => {
+      const data = snapshot.val();
+
+      if (!data ||
+          typeof data.sender !== "string" ||
+          typeof data.text !== "string") return;
+
+      displayMessage(data);
+    }, error => {
+      console.error("Read error:", error);
+      showNotice("chat-notice", "মেসেজ পড়া যাচ্ছে না। Firebase Database rules পরীক্ষা করুন।", "error");
+      setRoomStatus(false, "অ্যাক্সেস পাওয়া যাচ্ছে না");
+    });
+
+    $("message-input").focus();
+  }
+
+  function messagesDivReset() {
+    $("messages").replaceChildren();
+
+    const empty = document.createElement("div");
+    empty.className = "empty-state";
+    empty.id = "empty-state";
+
+    const icon = document.createElement("div");
+    icon.className = "empty-icon";
+    icon.textContent = "✉";
+
+    const heading = document.createElement("h3");
+    heading.textContent = "কথোপকথন শুরু হোক!";
+
+    const paragraph = document.createElement("p");
+    paragraph.textContent = "আপনার প্রথম মেসেজটি পাঠান। নতুন মেসেজ এখানে দেখা যাবে।";
+
+    empty.append(icon, heading, paragraph);
+    $("messages").appendChild(empty);
+  }
+
+  function formatTime(timestamp) {
+    const date = new Date(timestamp);
+    if (Number.isNaN(date.getTime())) return "";
+
+    return new Intl.DateTimeFormat("bn-BD", {
+      hour: "numeric",
+      minute: "2-digit"
+    }).format(date);
+  }
+
+  function formatDate(timestamp) {
+    const date = new Date(timestamp);
+    if (Number.isNaN(date.getTime())) return "";
+
+    const today = new Date();
+    const yesterday = new Date();
+    yesterday.setDate(today.getDate() - 1);
+
+    if (date.toDateString() === today.toDateString()) return "আজ";
+    if (date.toDateString() === yesterday.toDateString()) return "গতকাল";
+
+    return new Intl.DateTimeFormat("bn-BD", {
+      day: "numeric", month: "long", year: "numeric"
+    }).format(date);
+  }
+
+  function displayMessage(data) {
+    const timestamp = Number.isFinite(data.timestamp) ? data.timestamp : Date.now();
+    const dateLabel = formatDate(timestamp);
+    const container = $("messages");
+
+    if (!roomHasMessages) {
+      roomHasMessages = true;
+      container.replaceChildren();
+    }
+
+    if (dateLabel && dateLabel !== lastDateLabel) {
+      const divider = document.createElement("div");
+      divider.className = "date-divider";
+      const label = document.createElement("span");
+      label.textContent = dateLabel;
+      divider.appendChild(label);
+      container.appendChild(divider);
+      lastDateLabel = dateLabel;
+    }
+
+    const mine = data.sender === username;
+    const row = document.createElement("article");
+    row.className = "message-row" + (mine ? " mine" : "");
+
+    const meta = document.createElement("div");
+    meta.className = "message-meta";
+
+    const sender = document.createElement("span");
+    sender.textContent = mine ? "আপনি" : data.sender;
+
+    const time = document.createElement("span");
+    time.textContent = formatTime(timestamp);
+    meta.append(sender, time);
+
+    const bubble = document.createElement("div");
+    bubble.className = "message-bubble";
+    bubble.textContent = data.text;
+
+    const below = document.createElement("div");
+    below.className = "message-time";
+    below.textContent = formatTime(timestamp);
+
+    row.append(meta, bubble, below);
+    container.appendChild(row);
+    container.scrollTop = container.scrollHeight;
+  }
+
+  $("message-form").addEventListener("submit", async event => {
+    event.preventDefault();
+    await sendMessage();
+  });
+
+  async function sendMessage() {
+    const input = $("message-input");
+    const text = input.value.trim();
+
+    if (!text || !joined || !roomRef) return;
+
+    if (text.length > 2000) {
+      showNotice("chat-notice", "মেসেজ সর্বোচ্চ ২০০০ অক্ষরের হতে পারবে।", "error");
+      return;
+    }
+
+    $("send-button").disabled = true;
+    hideNotice("chat-notice");
+
+    try {
+      await roomRef.push({
+        sender: username,
+        text: text,
+        timestamp: firebase.database.ServerValue.TIMESTAMP
+      });
+
+      input.value = "";
+      input.focus();
+    } catch (error) {
+      console.error("Send error:", error);
+      showNotice("chat-notice", "মেসেজ পাঠানো যায়নি। ইন্টারনেট ও Firebase Database rules পরীক্ষা করুন।", "error");
+    } finally {
+      $("send-button").disabled = false;
+    }
+  }
+
+  async function copyShareLink() {
+    if (!currentRoom) return;
+
+    const url = new URL(location.href);
+    url.searchParams.set("room", currentRoom);
+
+    try {
+      await navigator.clipboard.writeText(url.href);
+      showToast("রুমের লিংক কপি হয়েছে!");
+    } catch (error) {
+      const temp = document.createElement("textarea");
+      temp.value = url.href;
+      temp.setAttribute("readonly", "");
+      temp.style.position = "fixed";
+      temp.style.opacity = "0";
+      document.body.appendChild(temp);
+      temp.select();
+
+      const copied = document.execCommand("copy");
+      temp.remove();
+
+      if (copied) showToast("রুমের লিংক কপি হয়েছে!");
+      else window.prompt("এই লিংকটি কপি করুন:", url.href);
+    }
+  }
+
+  $("copy-link-button").addEventListener("click", copyShareLink);
+  $("leave-button").addEventListener("click", leaveRoom);
+
+  function leaveRoom() {
+    if (roomRef && messageListener) {
+      roomRef.off("child_added", messageListener);
+    }
+
+    roomRef = null;
+    messageListener = null;
+    currentRoom = "";
+    joined = false;
+    roomHasMessages = false;
+    lastDateLabel = "";
+
+    $("chat-container").hidden = true;
+    $("room-container").hidden = false;
+    $("join-button").disabled = false;
+    $("room-input").value = "";
+    $("message-input").value = "";
+
+    const url = new URL(location.href);
+    url.searchParams.delete("room");
+    history.replaceState(null, "", url.pathname + url.search + url.hash);
+
+    $("username-input").focus();
+  }
+
+  window.addEventListener("online", () => {
+    if (database) setConnectionStatus(true, "ইন্টারনেট সংযুক্ত");
+  });
+
+  window.addEventListener("offline", () => {
+    setConnectionStatus(false, "ইন্টারনেট সংযোগ নেই");
+    if (joined) setRoomStatus(false, "সংযোগ বিচ্ছিন্ন");
+  });
+
+  loadRoomFromURL();
+</script>
+</body>
+</html>
